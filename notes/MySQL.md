@@ -1,5 +1,139 @@
 # MySQL
 
+## DDL
+
+- 操作数据库
+
+```java
+// 查询所有数据库
+show databases;
+// 查询当前数据库
+select database();
+// 创建
+create database if not exists test_db default charset utf8mb4;
+// 删除
+drop database if exists test_db;
+// 使用
+user test_db;
+```
+
+- 操作表
+
+```java
+// 查询所有表
+show tables；
+// 查询表结构
+desc `test_table`;
+// 查询指定表的建表语句
+show create table `test_table`;
+// 创建表
+create table `test_table`(
+  id int not null auto_increment comment '编号',
+  name varchar(255) default null comment '名称',
+  age int default null comment '年龄',
+  gender tinyint unsigned(1) default null comment '性别',
+  primary key(id)
+) character_set = utf8mb4, collate = utf8mb4_general_ci, comment '用户表';
+// 添加表字段
+alter table `test_table` add `nickname` varchar(255) default null comment '昵称';
+// 修改表字段
+alter table `test_table`change `nickname` `username` varchar(30) default null comment '用户名';
+alter table `test` modify `gender` tinyint(1) unsigned;
+// 删除表字段
+alter table `test_table` drop `username`;
+// 修改表名
+alter table `test_table` rename to `test`;
+// 删除指定表
+drop table if exists `test`;
+// 删除指定表，并重新创建表
+truncate table `test`;
+```
+
+## DML
+
+操作表数据的增删改
+
+```java
+//  给指定字段添加数据
+insert into `test`(id, name, age, gender) values(1, 'aaa', 20, 1);
+// 给全部字段添加数据
+insert into `test` values(1, 'aaa', 20, 1);
+// 批量添加数据
+insert into `test`(id, name, age, gender) values(3, 'aaa', 20, 1), (4, 'bbb', 20, 0);
+// 修改数据按条件
+update `test` set name = 'zzz' where id = 3;
+// 修改全表数据
+update `test` set name = 'zzz';
+// 删除数据按条件
+delete from `test` where id = 3;
+// 删除全表数据
+delete from `test`;
+// delete 不能删除一个字段(用 update )
+```
+
+## DQL
+
+操作表数据的查询
+
+优先级：where > group by > having > order by > limit
+
+where 和 having 的区别
+
+- where 是 分组之前进行过滤，having 是分组之后进行过滤
+- where 不能使用聚合函数，having 可以
+
+```java
+
+// 去重查询
+select distinct age from `test;
+// 查询姓名为两个字的员工信息 (_ 匹配单个字符，% 匹配任意字符)
+select * from `test` where name like '__';
+// 查询身份证号最后一位是 X 的员工信息
+select * from `test` wherer idcard like '%X';
+
+常见聚合函数: (null 值不参与计算) 聚合函数在分组时执行
+- count：统计数量
+- max：最大值
+- min：最小值
+- avg：平均值
+- sum：求和
+
+分组：group by 分组之后，查询的字段一般为聚合函数和分组字段
+// 根据性别分组，统计男性员工 和 女性员工的数量
+select gender, count(*) from `emp` group by gender;
+// 根据性别分组，统计男性员工 和 女性员工的平均年龄
+select gender, avg(age) from `emp` group by gender;
+// 查询年龄 <45 的员工，并根据工作地址分组，获取员工数量 >=3 的工作地址
+select `address`, count(*) num from `emp` where `age` < 45 group by `address` having num >= 3;
+
+排序：order by 字段1 排序方式1，字段2 排序方式2;
+- ASC：升序（默认）
+- DESC：降序
+多字段排序时，当第一个字段值相同时，才会根据第二个字段进行排序
+// 根据年龄对公司的员工进行升序排序
+select * from `emp` order by `age`；
+// 根据年龄对公司的员工进行降序排序
+select * from `emp` order by `age` desc；
+// 根据年龄对公司的员工进行升序排序，年龄相同再按照入职时间进行降序排序
+select * from `emp` order by `age` asc, `entrydate` desc;
+
+```
+
+综合
+
+```java
+// 查询年龄为 20、21、22、23 的员工信息
+select * from `emp` where `age` in(20, 21, 22, 23);
+// 查询性别为 男，并且年龄在 20-40 (含) 的姓名为 三个字的员工
+select * from `emp` where `gender` = '男' and `age` between 20 and  40 and `name` like '___';
+// 统计员工表中，年龄小于 60 的男性员工和女性员工的人数
+select `gender`, count(*) from `emp` where `age` < 60 group by `gender`;
+// 查询所有年龄 <= 35 的员工的姓名和年龄，并对查询结果按年龄升序排序，如果年龄相同按入职时间降序排序
+select `name`, `age` from `emp` where `age` <= 35 order by `age` asc, `entrydate` desc; 
+// 查询性别为男，且年龄在20-40（含）的前五个员工信息，对查询结果按年龄升序排序，年龄相同按入职时间降序排序
+select * from `emp` where `gender` = '男' and `age` between 20 and 40 order by `age` asc, `entrydate` desc limit 5;
+```
+
 ## MySQL 有哪几种数据存储引擎？有什么区别
 
 通过 show engines 指令可以看到所有支持的数据存储引擎。最常用的是 MyISAM 和 InnoDB 两种
