@@ -132,6 +132,101 @@ select `gender`, count(*) from `emp` where `age` < 60 group by `gender`;
 select `name`, `age` from `emp` where `age` <= 35 order by `age` asc, `entrydate` desc; 
 // 查询性别为男，且年龄在20-40（含）的前五个员工信息，对查询结果按年龄升序排序，年龄相同按入职时间降序排序
 select * from `emp` where `gender` = '男' and `age` between 20 and 40 order by `age` asc, `entrydate` desc limit 5;
+
+```
+
+## DCL
+
+管理 MySQL 用户及其权限
+
+```java
+// 创建用户
+create user 'admin'@'%' identified with mysql_native_password by 'admin';
+// 修改用户密码
+alter user 'root'@'localhost' identified with mysql_native_password by 'root';
+// 修改用户主机
+update user set Host = '%' where User = 'root';
+// 删除用户
+drop user 'admin'@'%';
+// 查询权限
+show grants for 'root'@'%';（usage 表示没有权限 all 表示有所有权限）
+// 授予权限
+grant all on *.* to 'root'@'%';
+// 撤销权限
+revoke all on *.* to 'root'@'%';
+
+```
+
+## 函数
+
+- 字符串
+
+```java
+- concat() 字符串拼接
+select concat('Hello', ' MySQL');
+- lower() 字符串转小写
+select lower('HELLO');
+- upper() 字符串转大写
+select lower('hello');
+- rpad() 右填充至n个
+select rpad('01', 5, '-'); --> '01---'
+- lpad() 左填充至n个
+select lpad('01', 5, '-'); --> '---01'
+- trim() 去除头尾的空格
+select trim(' Hello', ' MySQL ');
+- substring() 截取字符
+select substring('Hello MySQL', 1 ,5) 索引从1开始截取5个字符
+```
+
+- 数值
+
+```java
+- ceil(x) 向上取整
+select ceil(1.5);
+- floor(x) 向下取整
+select floor(1.5);
+- mod(x, y) 返回 x/y 的模 (取余)
+select mod(3, 4); --> 3
+select mod(5, 4); --> 1
+- rand() 返回 0 ~ 1 的随机数
+select rand();
+- round(x, y) 求参数 x 的四舍五入的值，保留 y 位小数
+select round(2.345, 2); --> 2.35
+- 例：生成一个六位数的随机验证码
+select rpad(round(rand() * 100000, 0), 6, '0');
+```
+
+- 日期
+
+```java
+- curdate() 返回当前日期
+select curdate();
+- curtime() 返回当前时间
+select curtime();
+- now() 返回当前日期和时间
+select now();
+- year(date) 获取指定 date 的年份
+select year(now());
+- month(date) 获取指定 date 的月份
+select month(now());
+- day(date) 获取指定 date 的日期
+select day(now());
+- date_add(date, INTERVAL expr unit ) 对 date 进行追加时间
+select date_add(now(),interval 2 day);
+- datediff(date1, date2) 返回 date1、date2 之间的天数
+select datediff('2022-03-01','2022-03-04'); --> -3
+```
+
+- 流程
+
+```java
+- if(value, t, f) 如果 value 为 true 则返回 t，否则 f
+select if(true, 'OK', 'Error');
+- ifnull(value1, value2) 如果 value1 不为空 则返回 value1，否则 返回 value2
+select ifnull('OK', 'Default');
+- case when [val1] then [res1]...else [default] end 如果 val1 为 true，返回 res1, ...否则返回 default 
+- case [expr] when [val1] then [res1]...else [default] end 如果 expr 的值等于 val1，返回 res1, ...否则返回 default 
+select `name`, case `address` when '北京' then '一线' when '上海' then '一线' else '二线' end as '工作地址' from `emp`;
 ```
 
 ## MySQL 有哪几种数据存储引擎？有什么区别
