@@ -229,6 +229,78 @@ select ifnull('OK', 'Default');
 select `name`, case `address` when '北京' then '一线' when '上海' then '一线' else '二线' end as '工作地址' from `emp`;
 ```
 
+## 多表查询
+
+多表查询会产生笛卡尔积：集合 A 和集合 B 所有元素的组合。故多表查询要消除笛卡尔积
+
+- 内连接 (两表交集)
+
+```java
+- 隐式内连接
+// 查询每一个员工的姓名，及其关联的部门名称
+select e.name, d.name from `emp` e, `dept` d where e.dept_id = d.id;
+// 显式内连接
+select e.name, d.name from `emp` e inner join `dept` d on e.dept_id = d.id;
+```
+
+- 外连接
+
+```java
+- 左外连接 (左表所有数据 + 两表交集)
+// 查询 emp 表的所有数据和对应的部门
+select e.*, d.name from `emp` e left join `dept` d on e.dept_id = d.id;
+- 右外连接 (右表所有数据 + 两表交集)
+// 查询 dept 表的所有数据和对应的员工
+select e.name, d.* from `emp` e right join `dept` d on e.dept_id = d.id;
+```
+
+- 自连接（两张表是同一张表）
+
+```java
+- 内连接
+// 查询员工及其所属领导的名字
+select a.name , b.name from `emp` a, `emp` b where a.id = b.managerid;
+- 外连接
+// 查询员工及其所属领导的名字，如果没有领导也要查出来
+select a.name , b.name from `emp` a left join `emp` b on e.id = b.managerid;
+```
+
+- 联合查询 ( 查询的字段必须一致)
+
+```java
+- union all (合并多次查询的全部数据)
+// 将薪资低于 5000 的员工和年龄大于 50 的员工全部查出来
+select * from `emp` where salary < 5000 union all select * from `emp` where age > 50;
+- union  (合并多次查询的全部数据并去重)
+// 将薪资低于 5000 的员工和年龄大于 50 的员工全部查出来，不重复
+select * from `emp` where salary < 5000 union  select * from `emp` where age > 50;
+```
+
+- 子查询
+
+```java
+- 标量子查询
+// 查询销售部的所有员工信息
+select * from `emp` where dept_id = (select id from `dept` where name = '销售部');
+
+- 列子查询 (in、not in、any、some、all)
+// 查询销售部和市场部的所有员工信息
+select * from `emp` where dept_id in (select id from `deop` where name ='销售部' or name ='市场部');
+// 查询比财务部所有人工资都高的员工信息
+select * from `emp` where salary > all (select salary from `emp` where dept_id = (select id from `dept` where name = '财务部'));
+// 查询比研发部任意一人工资高的员工信息
+select * from `emp` where salary > any (select salary from `emp` where dept_id = (select id from `dept` where name = '研发部'));
+
+- 行子查询 (=、<>、in、not in)
+// 查询与张无忌的薪资及直属领导相同的员工信息
+select * from `emp` where (salary, managerid) = (select salary, managerid from `emp` where name = '张无忌');
+- 表子查询 (in)
+// 查询鹿杖客和宋远桥的职位和薪资相同的员工信息
+select * from `emp` where (job, salary) in (select job, salary from `emp` where name = '鹿杖客' or name = '宋远桥');
+// 查询入职日期是 2006-01-01 之后的员工信息及其部门信息
+select e.*, d.* from (select * from `emp` where entrydate > '2006-01-01') e left join dept d on e.dept_id = d.id;
+```
+
 ## MySQL 有哪几种数据存储引擎？有什么区别
 
 通过 show engines 指令可以看到所有支持的数据存储引擎。最常用的是 MyISAM 和 InnoDB 两种
@@ -302,3 +374,63 @@ B+ tree：所有的数据都保存在叶子节点；叶子节点形成了一个�
 - 相对于二叉树搜索数和红黑树，层级更少，搜索效率高
 - 对于 B-tree，无论是叶子节点还是非叶子节点，都会存储数据，这样导致一页(16kb)中存储的键值减少，指针跟着减少，树的高度增加，导致性能降低；而且 B+ tree； 中叶子节点形成了双向链表，便于范围搜索和排序
 - 对于 Hash 索引，只支持等值匹配，不支持范围搜索和排序
+
+## InnoDB 存储引擎下的索引分类
+
+- 聚集索引：索引结构的叶子节点保存了行数据，必须有切只有一个
+- 二级索引：索引结构的叶子节点关联的是对应的主键，可以存在多个
+
+## InnoDB 主键索引的 B+tree 高度为多高呢
+
+假设：一行数据为 1k，一页中可以存储 16 行这样的数据。InnoDB 的指针占用 6 个字节的空间，主键即使为 bigint, 占用字节数为 8
+
+高度为 2 时：n * 8 + (n +1) * 6 = 16 * 1024 算出 n 约为 1170 ，1171 * 16  = 18736；
+高度为 3 时：1171 * 1171 * 16  = 21939856；
+
+结论：数据量为几万条以下时，树的高度为 2，数量为几千万以下时，树的高度为 3
+
+## 索引
+
+- 语法
+
+```java
+- 创建
+// 表：tb_user
+// name 字段为姓名字段，该字段的值可能会重复，为该字段创建索引
+create index idx_user_name on tb_user(name);
+// phone 手机号字段的值是非空，且唯一，为该字段创建唯一索引
+create unique index idx_user_phone on tb_user(phone);
+// 为 profession、age、status 创建联合索引
+create index idx_user_pro_age_sta on tb_user(profession, age, status);
+- 删除
+drop index idx_user_name on tb_user;
+```
+
+- 性能分析
+
+```java
+- 查看 数据库 sql 执行频率
+show session/global status like 'com_______'; (7 个 _)
+- 开启慢查询
+show variables like 'slow%';
+set global slow_query_log=ON;
+set global slow_launch_time=2;
+- profile
+// 查看是否支持 profile
+select @@have_profiling;
+// 查看是否开启 profile
+select @@profiling;
+// 开启 profile
+set global profiling=1;
+// 查看分析
+show profiles;
+- explain
+id：id 相同，按顺序执行，id 不同，值越大，越先执行
+select_type: 表示 select 类型，常见的取值有 simple(简单表，即不使用表连接或子查询)、primary(主查询，即外层的查询)、union(union 中的第二个或者后面的查询语句)、subquery(select/where 之后包含了子查询) 等
+type：表示连接类型，性能由好到差的连接类型为 NULL、system、const(唯一索引)、eq_ref、ref(非唯一索引)、range、index、all
+possible_key：显示可能应用在这张表上的索引，一个或多个
+key：实际使用的索引，如果为 NULL，则没有使用索引
+key_len：索引中使用的字节数，该值为索引字段最大可能长度，并非实际长度，在不损失精确性的 前提下，长度越短越好
+rows：MySQL 认为必须要执行查询的行数，是一个估计值，并不总是准确
+filtered：返回结果的行数占需读取行数的百分比，值越大越好
+```
