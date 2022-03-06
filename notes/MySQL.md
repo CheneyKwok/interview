@@ -377,7 +377,7 @@ B+ tree：所有的数据都保存在叶子节点；叶子节点形成了一个�
 
 ## InnoDB 存储引擎下的索引分类
 
-- 聚集索引：索引结构的叶子节点保存了行数据，必须有切只有一个
+- 聚集索引：索引结构的叶子节点保存了行数据，必须有且只有一个
 - 二级索引：索引结构的叶子节点关联的是对应的主键，可以存在多个
 
 ## InnoDB 主键索引的 B+tree 高度为多高呢
@@ -389,7 +389,7 @@ B+ tree：所有的数据都保存在叶子节点；叶子节点形成了一个�
 
 结论：数据量为几万条以下时，树的高度为 2，数量为几千万以下时，树的高度为 3
 
-## 索引
+## 索引使用
 
 - 语法
 
@@ -404,6 +404,8 @@ create unique index idx_user_phone on tb_user(phone);
 create index idx_user_pro_age_sta on tb_user(profession, age, status);
 - 删除
 drop index idx_user_name on tb_user;
+- 查看
+show index from tb_user;
 ```
 
 - 性能分析
@@ -411,10 +413,12 @@ drop index idx_user_name on tb_user;
 ```java
 - 查看 数据库 sql 执行频率
 show session/global status like 'com_______'; (7 个 _)
+
 - 开启慢查询
 show variables like 'slow%';
 set global slow_query_log=ON;
 set global slow_launch_time=2;
+
 - profile
 // 查看是否支持 profile
 select @@have_profiling;
@@ -424,13 +428,107 @@ select @@profiling;
 set global profiling=1;
 // 查看分析
 show profiles;
-- explain
+
+- explain 执行计划
 id：id 相同，按顺序执行，id 不同，值越大，越先执行
 select_type: 表示 select 类型，常见的取值有 simple(简单表，即不使用表连接或子查询)、primary(主查询，即外层的查询)、union(union 中的第二个或者后面的查询语句)、subquery(select/where 之后包含了子查询) 等
-type：表示连接类型，性能由好到差的连接类型为 NULL、system、const(唯一索引)、eq_ref、ref(非唯一索引)、range、index、all
+type：表示连接类型，性能由好到差的连接类型为 NULL、system、const(唯一索引)、eq_ref(唯一索引)、ref(非唯一索引)、range、index、all
 possible_key：显示可能应用在这张表上的索引，一个或多个
 key：实际使用的索引，如果为 NULL，则没有使用索引
 key_len：索引中使用的字节数，该值为索引字段最大可能长度，并非实际长度，在不损失精确性的 前提下，长度越短越好
 rows：MySQL 认为必须要执行查询的行数，是一个估计值，并不总是准确
 filtered：返回结果的行数占需读取行数的百分比，值越大越好
+extra：type 为 index的情况 ：using index condition (查询使用了索引，但是需要回表)、using where;using index(查询使用了索引，但是需要的数据在索引列中都能找到，无需回表)
 ```
+
+- 使用规则
+
+1. 最左前缀法则
+
+如果索引了多列（联合索引），要遵守最左前缀法则。即查询从索引最左列开始，并且不跳过索引中的列。如果跳过某一列，后面的字段索引会失效
+
+```java
+对于 a、b、c 三个字段的联合索引，查询为 a、ab、abc 走索引，ac 只有 a 走索引，c 失效
+```
+
+2. 范围查询
+
+联合索引中，出现范围查询(>,<)，范围查询右侧的列索引失效。使用 >=、<= 可以避免
+
+```java
+对于 a、b、c 三个字段的联合索引，查询为 a = 1 and b > 1 and c = 1，a，b 走索引，c 失效。a = 1 and c = 1 and b > 1 也是一样。
+```
+
+3. 索引列运算
+ 
+不要在索引列上进行运算操作，否则索引失效
+
+```java
+select * from tb_user where substring(phone,10,2) = '15';
+```
+
+4. 字符串不加引号索引会失效
+
+5. 模糊查询
+
+含有头部模糊匹配会失效
+
+```java
+select * from test where name = '%工程%';
+select * from test where name = '%工程';
+```
+
+6. or 连接的条件
+
+or 的一边查询的列没有索引，另一边也不会走
+
+7. 数据分布的影响
+
+如果 MySQL 评估使用索引比全表扫描更慢，则不使用索引
+
+- SQL 提示
+
+SQL 提示是优化数据库的一个重要手段，即在 SQL 语句中加入一些人为的提示来达到优化操作的目的
+
+```java
+use index；推荐使用索引
+select * from tb_user use index(idx_user_name) where name = '软件';
+ignore index；忽略使用索引
+select * from tb_user ignore index(idx_user_name) where name = '软件';
+force index；强制使用索引
+select * from tb_user force index(idx_user_name) where name = '软件';
+```
+
+- 覆盖索引
+
+即查询使用了索引，并且需要返回的列，在该索引中已经全部能够找到
+
+尽量使用覆盖索引，减少 select *;
+
+- 前缀索引
+
+当字段类型为(varchar、text)时，有时候需要索引很长的字符串,会让索引变得很大，查询时会浪费大量磁盘IO。则可以只将一部分前缀作为索引
+
+```java
+create index id_email_5 on tb_user(email(5));
+```
+
+前缀长度的选择：
+
+选择性=不重复的索引值/记录总数
+
+```java
+select count(distinct substring(email, 1, 5))/ count(*) from tb_user;
+```
+
+选择性越高越好，唯一索引的选择性是1，也是最好的选择性
+
+## 索引设计原则
+
+1. 针对于数据量较大(百万以上)，且查询比较频繁的表建立索引
+2. 针对常作为查询条件(where)、排序(order by)、分组(group by) 操作的字段建立索引
+3. 尽量选择区分度高的列作为索引，尽量建立唯一索引，区分度越高，使用索引的效率越高
+4. 如果是字符串类型的字段，字段的长度较长，建立前缀索引
+5. 尽量使用联合索引，减少单列索引，查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表
+6. 要控制索引的数量，太多会影响增删改的效率
+7. 如果索引列不能存储 NULL 值，在建表时使用 NOT NULL 来约束
