@@ -532,3 +532,34 @@ select count(distinct substring(email, 1, 5))/ count(*) from tb_user;
 5. 尽量使用联合索引，减少单列索引，查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表
 6. 要控制索引的数量，太多会影响增删改的效率
 7. 如果索引列不能存储 NULL 值，在建表时使用 NOT NULL 来约束
+
+## SQL 优化
+
+- 主键设计原则
+
+1. 满足业务需求的情况下，尽量降低主键的长度，过长会影响索引的效率
+2. 插入数据时，尽量选择顺序插入，选择使用自增主键(无序插入可能会发生页分裂)
+3. 尽量不要使用 UUID 做主键或其他自然主键，如身份证号
+4. 避免对主键修改
+
+- order by 优化
+
+Using filesort：通过表的索引或全表扫描，读取满足条件的数据行，然后在排序缓冲区 sort buffer 中完成排序操作，所有不是通过索引直接返回排序结果的排序的都是 filesort
+Using index：通过有序索引顺序扫描直接返回有序数据，不需要额外排序，操作效率高
+
+```java
+create index id_user_age_po_ad on tb_user(age asc, phone desc);
+select * from tb_user where age asc and phone desc;
+```
+
+1. 根据排序字段建立合适的索引，多字段排序时，也遵循最左前缀法则
+2. 尽量使用覆盖索引
+3. 多字段排序时，一个升序一个降序，此时需要注意联合索引在创建时的规则(ASC/DESC)
+4. 如果不可避免的出现 filesort，大数据量排序时，可以适当增大排序缓冲区的大小 sort_buffer_size(default 256k)
+
+- group by 优化
+
+Using temporary：临时表
+
+1. 在分组时，通过索引可以提升效率
+2. 分组时，索引的使用也满足最左前缀法则
