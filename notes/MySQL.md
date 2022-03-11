@@ -545,6 +545,7 @@ select count(distinct substring(email, 1, 5))/ count(*) from tb_user;
 - order by 优化
 
 Using filesort：通过表的索引或全表扫描，读取满足条件的数据行，然后在排序缓冲区 sort buffer 中完成排序操作，所有不是通过索引直接返回排序结果的排序的都是 filesort
+
 Using index：通过有序索引顺序扫描直接返回有序数据，不需要额外排序，操作效率高
 
 ```java
