@@ -564,3 +564,48 @@ Using temporary：临时表
 
 1. 在分组时，通过索引可以提升效率
 2. 分组时，索引的使用也满足最左前缀法则
+
+- limit 优化
+
+一般分页查询时，通过创建覆盖索引 + 子查询形式进行优化
+
+```java
+explain select * from tb_sku t, (select id from tb_sku group by id limit 2000000, 10) a where t.id = a.id;
+```
+
+- count 优化
+
+没有特别好的优化方案，可以放redis中自己计数
+
+效率：count(*) = count(1) > count(id) > count(字段)
+
+count(*) 不取值，直接按行进行累加
+
+count(1) 不取值，按行放一个数字 1 进去累加
+
+count(id) 取出每一行的主键 id后，按行累加
+
+count(字段) 取出每一行的字段，判断不为 NULL 后，按行累加
+
+- update 优化
+
+update 时尽量根据索引字段更新，否则会从行锁升级为表锁，并发性能降低
+
+InnoDB 的行锁是针对索引加的锁，不是针对记录加的锁，并且该索引不能失效，否则会从行锁升级为表锁
+
+## 锁
+
+### 全局锁
+
+锁住整个数据库实例，处于只读状态，后续的 DML、DDL、已经更新操作的事务提交语句都会被阻塞
+
+```java
+// 开启全局锁
+flush tables with read lock;
+// 终端执行命令
+mysqldump -h192.168.56.10 uroot -proot db_01 > D:/db01.sql
+// 关闭
+unlock tables
+// 不加锁的一致性数据备份
+mysqldump --single-transaction -h192.168.56.10 uroot -proot db_01 > D:/db01.sql
+```
