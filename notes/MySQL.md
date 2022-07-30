@@ -358,9 +358,13 @@ set global transaction level xxx 设置全局事务隔离级别
 MySQL 中有五种隔离级别
 
 NONE: 不使用事务
+
 READ UNCOMMITED：允许脏读
+
 READ COMMITED：防止脏读，最常用的隔离级别
+
 REPEATABLE READ: 防止脏读和不可重读。MySQL 默认
+
 SERIALIZABLE：事务串行，可以防止脏读、幻读、不可重复读
 
 五种隔离级别，级别越高，事务的安全性更高，但是并发的性能越低
