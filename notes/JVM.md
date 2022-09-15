@@ -51,3 +51,27 @@
    1. 例如 PhantomReference a = new PhantomReference(new A());
    2. 必须配合引用队列一起使用，当虚引用引用的对象被回收时，会将虚引用对象入队，由 Reference Handler 线程释放其关联的外部资源
    3. 典型例子是 Cleaner 释放 DirectByteBuffer 占用的直接内存
+
+## 两个重要队列 unfinalized 队列、ReferenceQueue 队列
+
+- unfinalized 队列：当重写了 finalize 方法的对象，在构造方法调用之时，JVM 都会将其包装成一个 Finalizer 对象，并加入 unfinalized 队列中（静态成员变量、双向链表结构）
+  
+  ![图 1](../.image/23dee545c91289a266b185a7814f614f47f6b598e1200f2c8b23ec64f90e3f16.png)  
+
+- ReferenceQueue 队列：也是 Finalizer 类中一个静态成员变量，名为 queue（单向链表），当对象在执行完 finalize() 可以当作垃圾回收时，会将该对象对应的 Finalizer 对象加入这个队列
+  
+  ![图 2](../.image/81a26ca6b9694d851065d4d2223f6bc91848363b18115b3c447e8412ebec1c65.png)  
+
+## finalize 的理解，为什么 finalize 方法非常不好，非常影响性能
+
+finalize 时 Object 中的一个方法，子类重写它，垃圾回收时此方法会被调用，可以在其进行一些资源释放和清理工作
+
+但是将资源释放和清理放在 finalize 方法中非常不好，并且影响性能，严重时会引起 OOM，从 jdk 9 开始就被放弃了，不建议使用
+
+- 非常不好
+  1. FinalizerThread 是守护线程，代码很有可能没来得及执行完，线程就结束了，造成资源没有正确释放
+  2. 异常会被吞掉，无法判断有没有在释放资源时发生错误
+- 影响性能
+  1. 重写了 finalize 方法的对象在第一次被 GC 时无法被释放，因为需要等 FinalizerThread 调用完 finalize，把它从第一个 unfinalized 队列移除后，没有被引用时第二次GC 才能被释放
+  2. GC 本就因为内存不足引起，finalize 调用又很慢（两个队列的移除操作，且都是串行执行的），不能及时释放内存，对象释放不及时就会逐渐移入老年代，老年代垃圾积累过多就会容易 Full GC，Full GC 释放速度如果仍跟不上创建新对象的速度就会 OOM
+
