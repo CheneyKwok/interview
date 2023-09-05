@@ -613,3 +613,6 @@ unlock tables
 // 不加锁的一致性数据备份
 mysqldump --single-transaction -h192.168.56.10 uroot -proot db_01 > D:/db01.sql
 ```
+
+## 索引理解
+1. 当 select 返回的字段包含在联合索引中的时，即使 where 后的条件不满足最左原则，也会走索引
